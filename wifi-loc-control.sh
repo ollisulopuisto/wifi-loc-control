@@ -18,8 +18,13 @@ log() {
   echo -e "$current_date $*"
 }
 
-# Get the Wi-Fi network name (SSID)
-wifi_name=$(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I | grep ' SSID:' | sed -nE 's/.*SSID: (.*)/\1/p')
+# Get the Wi-Fi network name (SSID). `airport -I` was removed in macOS 14.4;
+# ipconfig getsummary still reports the SSID on the primary interface.
+wifi_name=$(ipconfig getsummary en0 2>/dev/null | sed -nE 's/^[[:space:]]*SSID : (.*)$/\1/p' | head -n 1)
+if [ -z "$wifi_name" ]; then
+  # Fallback for interfaces/setups where ipconfig does not report the SSID.
+  wifi_name=$(system_profiler SPAirPortDataType 2>/dev/null | awk '/Current Network Information:/{getline; sub(/:$/,""); gsub(/^[[:space:]]+/,""); print; exit}')
+fi
 log "current wifi_name '$wifi_name'"
 
 if [ "$wifi_name" == "" ]; then
