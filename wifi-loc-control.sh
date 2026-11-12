@@ -7,7 +7,7 @@ ALIAS_CONFIG_PATH=$CONFIG_DIR/alias.conf
 
 # redirecting both standard output and standard error to the same location and appending
 # it to a log file under the user's home directory ($HOME).
-exec 2>&1 >> $LOGS_PATH
+exec >> "$LOGS_PATH" 2>&1
 
 # allow time for file descriptors to be set up and log file to be created
 sleep 3
