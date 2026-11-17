@@ -42,9 +42,9 @@ log "current network location '$current_network_location'"
 
 # Check if an alias is defined for the current Wi-Fi network
 alias_location=$wifi_name
-if [ -f $ALIAS_CONFIG_PATH ]; then
+if [ -f "$ALIAS_CONFIG_PATH" ]; then
   log "reading alias config '$ALIAS_CONFIG_PATH'"
-  alias=$(grep "$wifi_name=" $ALIAS_CONFIG_PATH | sed -nE 's/.*=(.*)/\1/p')
+  alias=$(grep "$wifi_name=" "$ALIAS_CONFIG_PATH" | sed -nE 's/.*=(.*)/\1/p')
 
   if [ "$alias" != "" ]; then
     alias_location=$alias
@@ -54,15 +54,39 @@ if [ -f $ALIAS_CONFIG_PATH ]; then
   fi
 fi
 
+# Returns 0 if $1 is a safe location name to use as a path component under $CONFIG_DIR.
+# Rejects empty names, path separators and parent-directory ("..") references.
+#
+# Security: the location name is derived from the Wi-Fi SSID and/or the alias config,
+# both of which a hostile network or local config can influence. Without this check an
+# unsafe name would resolve $script_file outside $CONFIG_DIR and the script would then be
+# executed with the user's privileges (path traversal -> arbitrary script execution).
+is_safe_location_name() {
+  local name="$1"
+  [ -n "$name" ] || return 1
+  case "$name" in
+    */*|..*|.) return 1 ;;
+  esac
+  return 0
+}
+
 exec_location_script() {
   location=$1
+
+  # Validate before using the location as a path component and before executing the
+  # resulting script, so a spoofed SSID/alias cannot escape the config directory.
+  if ! is_safe_location_name "$location"; then
+    log "refusing to execute script for unsafe location '$location'"
+    return 0
+  fi
+
   script_file="$CONFIG_DIR/$location"
 
   log "finding script for location '$location'"
 
-  if [ -f $script_file  ]; then
+  if [ -f "$script_file" ]; then
     log "running script '$script_file'"
-    chmod +x $script_file
+    chmod +x "$script_file"
     "$script_file"
   else
     log "script for location '$location' not found"
